@@ -20,7 +20,7 @@ plt.figure()
 for i, nexname in enumerate(nexlist):
     plt.subplot(len(nexlist), 1, i)
 
-    print 'read in: %s' % nexname
+    logger.info('read in: %s' % nexname)
     seg = NexIOplus(filename=nexname, downsample=downsample_factor).read()
     if len(seg.spiketrains) > 1:
         logger.error('more then one unit was defined in nexfile')
