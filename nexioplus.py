@@ -37,7 +37,8 @@ import os
 import numpy as np
 import scipy.io as sio
 from neo.io.neuroexplorerio import NeuroExplorerIO
-from neo.core import AnalogSignal
+from neo.core import AnalogSignal, Block, Segment, SpikeTrain
+import quantities as pq
 
 
 class NexIOplus(NeuroExplorerIO):
@@ -63,7 +64,8 @@ class NexIOplus(NeuroExplorerIO):
         if not isinstance(downsample, int):
             raise ValueError('downsampling value has to be int')
         else:
-            self.downsample = downsample
+            # the downsampling factor
+            self.f_down = float(downsample)
         self.matname = self.filename[:-3] + 'mat'
         if not os.path.exists(self.matname):
             raise IOError('corresponding mat file not found')
@@ -74,23 +76,64 @@ class NexIOplus(NeuroExplorerIO):
         all the data from different channels and blocks is found in a big
         data array and has to be extracted by the indexes in other variables
         """
-        seg = super(NexIOplus, self).read_segment()
 
-        channel_names = ['stepper', 'mechanic', 'heat']
+        train = super(NexIOplus, self).read_segment().spiketrains[0]
+
         mat = sio.loadmat(self.matname, squeeze_me=True)
-        n_channels, n_blocks = np.shape(mat['datastart'])
+        n_channels, n_segments = np.shape(mat['datastart'])
 
-        for i in range(n_channels):
-            rate = mat['samplerate'][i, 0] / self.downsample
-            tmp = np.array(())
-            for j in range(n_blocks):
-                start = mat['datastart'][i,j] -1
-                end = mat['dataend'][i,j]
-                tmp = np.append(tmp, mat['data'][start:end])
-            ansig = AnalogSignal(signal=tmp[::self.downsample],
-                                 name=channel_names[i],
-                                 units=mat['unittext'].item(),
-                                 sampling_rate=rate,
-                                 t_start=0)
-            seg.analogsignals.append(ansig)
-        return seg
+        # convert blocktimes to posix format (from stupid matlab convention)
+        blockt_pos = (mat['blocktimes'] - 719529) * 86400.0
+        blockt_pos = blockt_pos - blockt_pos[0]
+
+        # TODO make sure that spiketimes are in relation to first blocktimes
+        # and not to the very beginning of the recording. Very beginning to
+        # first blocktime has often offset around 10s
+
+        # create a new block to return in the end
+        block = Block()
+
+
+        for segment in range(n_segments):
+
+            # TODO add description and filename and co
+            seg = Segment(name=str(segment))
+
+            for channel in range(n_channels):
+
+                rate = mat['samplerate'][channel, segment] / self.f_down
+                start = mat['datastart'][channel, segment] - 1
+                end = mat['dataend'][channel, segment]
+
+                tmp_sig = mat['data'][start:end][::self.f_down]
+                ansig = AnalogSignal(signal=tmp_sig,
+                                     name=mat['titles'][channel],
+                                     # TODO use unittextmap properly
+                                     units=mat['unittext'].item(),
+                                     sampling_rate=rate,
+                                     t_start=blockt_pos[segment])
+                seg.analogsignals.append(ansig)
+
+            if segment + 1 < n_segments:
+                t = train[(train > blockt_pos[segment]) &
+                          (train < blockt_pos[segment+1])]
+                end = blockt_pos[segment+1]
+            else:
+                t = train[train > blockt_pos[segment]]
+                end = blockt_pos[segment] + len(ansig)/rate
+
+            strain = SpikeTrain(times=t.magnitude,
+                                units=train.units,
+                                t_start=blockt_pos[segment],
+                                t_stop=end)
+
+            seg.spiketrains.append(strain)
+
+            block.segments.append(seg)
+        return block
+
+
+
+
+
+
