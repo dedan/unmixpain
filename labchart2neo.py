@@ -54,6 +54,7 @@ def cv(train):
 nexlist = glob.glob(data_folder + '*.nex')
 
 res = {}
+wins = []
 
 # actual data processing
 # for nexname in [nexlist[2]]:
@@ -102,12 +103,10 @@ for i, nexname in enumerate(nexlist):
         if onoffs_time:
             for x1, x2 in onoffs_time:
                 win = train[(train > x1+start) & (train < x2+start)]
+                wins.append(win)
                 res[nexname]["cvs"].append(cv(win))
-                print "CV: %f\n" % cv(win)
-    bla = plt.xticks()
-    plt.xticks(bla[0], bla[0]/rate, rotation=25)
-
-
+    ticks = plt.xticks()
+    plt.xticks(ticks[0], ticks[0]/rate, rotation=25)
     plt.show()
     # plt.savefig("fig%d.pdf" % (i+1))
 
@@ -118,5 +117,11 @@ for key, bla in res.items():
     plt.plot(bla['flevels'], bla['cvs'], '*', label=os.path.basename(key))
 plt.legend(loc=(1, 0))
 # plt.savefig("cv_vs_force.pdf")
+plt.show()
+
+# isi over spike-number
+plt.figure()
+for win in wins:
+    plt.plot(np.diff(win), '.')
 plt.show()
 
