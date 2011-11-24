@@ -72,9 +72,16 @@ for i, nexname in enumerate(nexlist):
         if is_boring_segment(segment.analogsignals, boring_thresh):
             continue
 
-        stepper = segment.analogsignals[0]
-        force = segment.analogsignals[1]
-        temp = segment.analogsignals[2]
+        if len(segment.analogsignals) == 3:
+            stepper = segment.analogsignals[0]
+            force = segment.analogsignals[1]
+            temp = segment.analogsignals[2]
+        else:
+            spikes = segment.analogsignals[0]
+            stepper = segment.analogsignals[1]
+            force = segment.analogsignals[2]
+            temp = segment.analogsignals[3]
+
 
         rate = stepper.sampling_rate * 1/pq.s
         length = len(stepper)
@@ -107,8 +114,8 @@ for i, nexname in enumerate(nexlist):
                 res[nexname]["cvs"].append(cv(win))
     ticks = plt.xticks()
     plt.xticks(ticks[0], ticks[0]/rate, rotation=25)
+    plt.savefig("fig_%s.png" % os.path.basename(nexname))
     plt.show()
-    # plt.savefig("fig%d.pdf" % (i+1))
 
 plt.figure()
 plt.axes([0.1, 0.1, 0.5, 0.8])
@@ -116,12 +123,13 @@ plt.title("CV against force level")
 for key, bla in res.items():
     plt.plot(bla['flevels'], bla['cvs'], '*', label=os.path.basename(key))
 plt.legend(loc=(1, 0))
-# plt.savefig("cv_vs_force.pdf")
+plt.savefig("cv_vs_force.png")
 plt.show()
 
 # isi over spike-number
 plt.figure()
 for win in wins:
     plt.plot(np.diff(win), '.')
+plt.savefig("isi.png")
 plt.show()
 
