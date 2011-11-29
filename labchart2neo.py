@@ -22,7 +22,7 @@ win_width = 100
 
 
 def extract_onsets(signal, threshold, win_width):
-    """find onsets in stepper signal"""
+    '''find onsets in stepper signal'''
     s = np.convolve(abs(signal), np.ones(win_width) / win_width)
     x = 0
     onoffs = []
@@ -39,7 +39,7 @@ def extract_onsets(signal, threshold, win_width):
     return onoffs[::2]
 
 def is_boring_segment(signals, threshold):
-    """docstring for is_boring_segment"""
+    '''docstring for is_boring_segment'''
     is_boring = True
     for signal in signals:
         if np.max(signal) - np.min(signal) > threshold:
@@ -47,7 +47,7 @@ def is_boring_segment(signals, threshold):
     return is_boring
 
 def cv(train):
-    """compute the coefficient of variation"""
+    '''compute the coefficient of variation'''
     isi = np.diff(win)
     return np.std(isi)/np.mean(isi)
 
@@ -62,11 +62,11 @@ wins = []
 # for nexname in [nexlist[2]]:
 for i, nexname in enumerate(nexlist):
 
-    print " "
+    print ' '
     logger.info('read in: %s' % nexname)
     block = NexIOplus(filename=nexname, downsample=downsample_factor).read()
 
-    res[nexname] = {"flevels": [], "cvs": []}
+    res[nexname] = {'flevels': [], 'cvs': [], 'rates': []}
 
     plt.figure()
     for segment in block.segments:
@@ -94,13 +94,15 @@ for i, nexname in enumerate(nexlist):
         plt.plot(x_range, stepper, 'b')
         plt.plot(x_range, force, 'g')
         plt.plot(x_range, temp, 'r')
+
+        # check alignment
         # if len(spikes) > 0:
         #     plt.plot(x_range, spikes, 'b')
 
         onoffs = extract_onsets(stepper, stepper_thresh, win_width)
         for x1, x2 in onoffs:
             flevel = np.max(force[x1:x2]) - np.min(force)
-            res[nexname]["flevels"].append(flevel)
+            res[nexname]['flevels'].append(flevel)
             l = plt.plot([x1 + start*rate, x2 + start*rate], [0, 0], 'v')
             l[0].set_markersize(10)
 
@@ -116,25 +118,42 @@ for i, nexname in enumerate(nexlist):
             for x1, x2 in onoffs_time:
                 win = train[(train > x1+start) & (train < x2+start)]
                 wins.append(win)
-                res[nexname]["cvs"].append(cv(win))
+                res[nexname]['cvs'].append(cv(win))
+                res[nexname]['rates'].append(len(win) / (x2 - x1))
     ticks = plt.xticks()
     plt.xticks(ticks[0], ticks[0]/rate, rotation=25)
-    plt.savefig("fig_%s.png" % os.path.basename(nexname))
+    plt.savefig('fig_%s.png' % os.path.basename(nexname))
     plt.show()
 
 plt.figure()
 plt.axes([0.1, 0.1, 0.5, 0.8])
-plt.title("CV against force level")
+plt.title('CV against force level')
 for key, bla in res.items():
-    plt.plot(bla['flevels'], bla['cvs'], '*-', label=os.path.basename(key))
+    plt.plot(bla['flevels'] / np.max(bla['flevels']),
+             bla['cvs'],
+             '*-',
+             label=os.path.basename(key))
 plt.legend(loc=(1, 0))
-plt.savefig("cv_vs_force.png")
+plt.savefig('cv_vs_force.png')
 plt.show()
+
+plt.figure()
+plt.axes([0.1, 0.1, 0.5, 0.8])
+plt.title('rate against force level')
+for key, bla in res.items():
+    plt.plot(bla['flevels'] / np.max(bla['flevels']),
+             bla['rates'],
+             '*-',
+             label=os.path.basename(key))
+plt.legend(loc=(1, 0))
+plt.savefig('rates_vs_force.png')
+plt.show()
+
 
 # isi over spike-number
 plt.figure()
 for win in wins:
     plt.plot(np.diff(win), '.')
-plt.savefig("isi.png")
+plt.savefig('isi.png')
 plt.show()
 
