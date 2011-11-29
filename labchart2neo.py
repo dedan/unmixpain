@@ -8,6 +8,7 @@ import quantities as pq
 from math import floor
 from os import path
 import matplotlib.gridspec as gridspec
+import matplotlib.cm as cm
 
 # logger setup
 logging.basicConfig(level=logging.DEBUG,
@@ -146,9 +147,11 @@ for i, nexname in enumerate(nexlist):
 
     # plot the ISIs over time (x-axis normalized!)
     plt.subplot(gs[1,0])
-    for isi in res[nexname]['isis']:
+    for i, isi in enumerate(res[nexname]['isis']):
         if len(isi) > 3:
-            plt.plot(np.array(range(len(isi))) / float(len(isi)), isi, '.-')
+            bla = res[nexname]['flevels'][i] / np.max(res[nexname]['flevels'])
+            c = cm.jet(bla, 1)
+            plt.plot(np.array(range(len(isi))) / float(len(isi)), isi, '.-', color=c)
     plt.savefig(path.join(out_folder, 'fig_%s.png') % path.basename(nexname))
     plt.show()
 
