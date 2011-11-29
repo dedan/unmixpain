@@ -17,7 +17,7 @@ logger = logging.getLogger()
 data_folder = '/Users/dedan/projects/fu/data/'
 downsample_factor = 10
 boring_thresh = 1
-stepper_thresh = 0.1
+stepper_thresh = 0.02
 win_width = 100
 
 
@@ -40,9 +40,11 @@ def extract_onsets(signal, threshold, win_width):
 
 def is_boring_segment(signals, threshold):
     """docstring for is_boring_segment"""
-    no_temp_change = np.max(signals[2]) - np.min(signals[2]) < threshold
-    no_stepper = np.max(signals[0]) - np.min(signals[0]) < threshold
-    return no_temp_change and no_stepper
+    is_boring = True
+    for signal in signals:
+        if np.max(signal) - np.min(signal) > threshold:
+            is_boring = False
+    return is_boring
 
 def cv(train):
     """compute the coefficient of variation"""
@@ -69,18 +71,19 @@ for i, nexname in enumerate(nexlist):
     plt.figure()
     for segment in block.segments:
 
-        if is_boring_segment(segment.analogsignals, boring_thresh):
-            continue
-
         if len(segment.analogsignals) == 3:
             stepper = segment.analogsignals[0]
             force = segment.analogsignals[1]
             temp = segment.analogsignals[2]
+            spikes = []
         else:
             spikes = segment.analogsignals[0]
             stepper = segment.analogsignals[1]
             force = segment.analogsignals[2]
             temp = segment.analogsignals[3]
+
+        if is_boring_segment([stepper, temp], boring_thresh):
+            continue
 
 
         rate = stepper.sampling_rate * 1/pq.s
@@ -88,9 +91,11 @@ for i, nexname in enumerate(nexlist):
         start = stepper.t_start * pq.s
 
         x_range = range(int(floor(start*rate)), int(floor(start*rate))+length)
-        # plt.plot(x_range, stepper, 'b')
+        plt.plot(x_range, stepper, 'b')
         plt.plot(x_range, force, 'g')
         plt.plot(x_range, temp, 'r')
+        # if len(spikes) > 0:
+        #     plt.plot(x_range, spikes, 'b')
 
         onoffs = extract_onsets(stepper, stepper_thresh, win_width)
         for x1, x2 in onoffs:
@@ -121,7 +126,7 @@ plt.figure()
 plt.axes([0.1, 0.1, 0.5, 0.8])
 plt.title("CV against force level")
 for key, bla in res.items():
-    plt.plot(bla['flevels'], bla['cvs'], '*', label=os.path.basename(key))
+    plt.plot(bla['flevels'], bla['cvs'], '*-', label=os.path.basename(key))
 plt.legend(loc=(1, 0))
 plt.savefig("cv_vs_force.png")
 plt.show()
