@@ -6,7 +6,7 @@ import pylab as plt
 import numpy as np
 import quantities as pq
 from math import floor
-import os
+from os import path
 import matplotlib.gridspec as gridspec
 
 # logger setup
@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 data_folder = '/Users/dedan/projects/fu/data/'
-out_folder = os.path.join(data_folder, 'out')
+out_folder = path.join(data_folder, 'out')
 
 # downsample to save working memory, but !!! if the factor is two high
 # the stepper activity detection fails for small force levels.
@@ -88,7 +88,7 @@ for i, nexname in enumerate(nexlist):
     gs = gridspec.GridSpec(2, 2)
     gs.update(hspace=0.5)
     plt.subplot(gs[0,:])
-    plt.title(os.path.basename(nexname))
+    plt.title(path.basename(nexname))
     for segment in block.segments:
 
         if len(segment.analogsignals) == 3:
@@ -149,7 +149,7 @@ for i, nexname in enumerate(nexlist):
     for isi in res[nexname]['isis']:
         if len(isi) > 3:
             plt.plot(np.array(range(len(isi))) / float(len(isi)), isi, '.-')
-    plt.savefig('fig_%s.png' % os.path.basename(nexname))
+    plt.savefig(path.join(out_folder, 'fig_%s.png') % path.basename(nexname))
     plt.show()
 
 
@@ -166,8 +166,8 @@ for key, result in res.items():
     flevels = result['flevels'] / np.max(result['flevels'])
     p1.plot(flevels, result['cvs'], '*-')
     p2.plot(flevels, result['rates'], '*-')
-    p3.plot(0, 0, label=os.path.basename(key))
+    p3.plot(0, 0, '.-', label=path.basename(key))
 
 p3.legend()
-plt.savefig('rates_vs_force_new.png')
+plt.savefig(path.join(out_folder, 'rates_vs_force_new.png'))
 plt.show()
