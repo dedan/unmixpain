@@ -66,7 +66,7 @@ for i, nexname in enumerate(nexlist):
     logger.info('read in: %s' % nexname)
     block = NexIOplus(filename=nexname, downsample=downsample_factor).read()
 
-    res[nexname] = {'flevels': [], 'cvs': [], 'rates': []}
+    res[nexname] = {'flevels': [], 'cvs': [], 'rates': [], 'isis': []}
 
     plt.figure()
     for segment in block.segments:
@@ -117,12 +117,31 @@ for i, nexname in enumerate(nexlist):
         if onoffs_time:
             for x1, x2 in onoffs_time:
                 win = train[(train > x1+start) & (train < x2+start)]
+
+                # store isis
+
+                # plot isi over time
+                if len(win) > 1:
+
+                    res[nexname]['isis'].append((win[1:]-win[0], np.diff(win)))
+
+                    isis = np.diff(win) / np.max(np.diff(win))
+                    for spike, isi in zip(win[1:], isis):
+                        plt.plot(spike*rate, isi + 5, '.c')
+
                 wins.append(win)
                 res[nexname]['cvs'].append(cv(win))
                 res[nexname]['rates'].append(len(win) / (x2 - x1))
     ticks = plt.xticks()
     plt.xticks(ticks[0], ticks[0]/rate, rotation=25)
     plt.savefig('fig_%s.png' % os.path.basename(nexname))
+
+    plt.figure()
+    for x, isi in res[nexname]['isis']:
+        if len(isi) > 3:
+            plt.plot(np.array(range(len(isi))) / float(len(isi)), isi, '.-')
+    plt.savefig('fig_isi_tmpnorm_%s.png' % os.path.basename(nexname))
+
     plt.show()
 
 plt.figure()
