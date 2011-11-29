@@ -7,6 +7,7 @@ import numpy as np
 import quantities as pq
 from math import floor
 import os
+import matplotlib.gridspec as gridspec
 
 # logger setup
 logging.basicConfig(level=logging.DEBUG,
@@ -15,14 +16,29 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 data_folder = '/Users/dedan/projects/fu/data/'
+out_folder = os.path.join(data_folder, 'out')
+
+# downsample to save working memory, but !!! if the factor is two high
+# the stepper activity detection fails for small force levels.
 downsample_factor = 10
+
+# threshold for sorting out boring (not stimulation) segments
 boring_thresh = 1
+
+# threshold to detect activity of the stepper-motor
 stepper_thresh = 0.02
+
+# width of the kernel used for smoothing the stepper signal
 win_width = 100
 
 
 def extract_onsets(signal, threshold, win_width):
-    '''find onsets in stepper signal'''
+    '''find onsets in stepper signal (stupid but workin version)
+
+    Simple looks whether a certain threshold is exceeded. Signal is first
+    convolved with a rectangular kernel to be less susceptible to small
+    spikes.
+    '''
     s = np.convolve(abs(signal), np.ones(win_width) / win_width)
     x = 0
     onoffs = []
@@ -38,13 +54,15 @@ def extract_onsets(signal, threshold, win_width):
     # don't use the times in between
     return onoffs[::2]
 
+
 def is_boring_segment(signals, threshold):
-    '''docstring for is_boring_segment'''
+    '''returns True if not stimulation took place (no variation in signal)'''
     is_boring = True
     for signal in signals:
         if np.max(signal) - np.min(signal) > threshold:
             is_boring = False
     return is_boring
+
 
 def cv(train):
     '''compute the coefficient of variation'''
@@ -52,13 +70,11 @@ def cv(train):
     return np.std(isi)/np.mean(isi)
 
 
-
 nexlist = glob.glob(data_folder + '*.nex')
 
 res = {}
 wins = []
 
-# actual data processing
 # for nexname in [nexlist[2]]:
 for i, nexname in enumerate(nexlist):
 
@@ -69,13 +85,17 @@ for i, nexname in enumerate(nexlist):
     res[nexname] = {'flevels': [], 'cvs': [], 'rates': [], 'isis': []}
 
     plt.figure()
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(hspace=0.5)
+    plt.subplot(gs[0,:])
+    plt.title(os.path.basename(nexname))
     for segment in block.segments:
 
         if len(segment.analogsignals) == 3:
+            spikes = []
             stepper = segment.analogsignals[0]
             force = segment.analogsignals[1]
             temp = segment.analogsignals[2]
-            spikes = []
         else:
             spikes = segment.analogsignals[0]
             stepper = segment.analogsignals[1]
@@ -84,7 +104,6 @@ for i, nexname in enumerate(nexlist):
 
         if is_boring_segment([stepper, temp], boring_thresh):
             continue
-
 
         rate = stepper.sampling_rate * 1/pq.s
         length = len(stepper)
@@ -95,17 +114,15 @@ for i, nexname in enumerate(nexlist):
         plt.plot(x_range, force, 'g')
         plt.plot(x_range, temp, 'r')
 
-        # check alignment
-        # if len(spikes) > 0:
-        #     plt.plot(x_range, spikes, 'b')
-
+        # extract windows in which stimulation took place
         onoffs = extract_onsets(stepper, stepper_thresh, win_width)
         for x1, x2 in onoffs:
             flevel = np.max(force[x1:x2]) - np.min(force)
             res[nexname]['flevels'].append(flevel)
-            l = plt.plot([x1 + start*rate, x2 + start*rate], [0, 0], 'v')
+            l = plt.plot([x1 + start * rate, x2 + start * rate], [0, 0], 'v')
             l[0].set_markersize(10)
 
+        # plot the spiketrain of segment
         train = segment.spiketrains[0]
         if np.any(train):
             tmp = np.zeros(length)
@@ -113,66 +130,44 @@ for i, nexname in enumerate(nexlist):
                 tmp[int(floor((spike - start) * rate))] = 1
             plt.plot(x_range, tmp, 'k', linewidth=0.3)
 
+        # extract spiketrain during stimulation
         onoffs_time = [(x1/rate, x2/rate) for x1, x2 in onoffs]
-        if onoffs_time:
-            for x1, x2 in onoffs_time:
-                win = train[(train > x1+start) & (train < x2+start)]
+        for x1, x2 in onoffs_time:
+            win = train[(train > x1+start) & (train < x2+start)]
 
-                # store isis
+            wins.append(win)
+            res[nexname]['isis'].append(np.diff(win))
+            res[nexname]['cvs'].append(cv(win))
+            res[nexname]['rates'].append(len(win) / (x2 - x1))
 
-                # plot isi over time
-                if len(win) > 1:
-
-                    res[nexname]['isis'].append((win[1:]-win[0], np.diff(win)))
-
-                    isis = np.diff(win) / np.max(np.diff(win))
-                    for spike, isi in zip(win[1:], isis):
-                        plt.plot(spike*rate, isi + 5, '.c')
-
-                wins.append(win)
-                res[nexname]['cvs'].append(cv(win))
-                res[nexname]['rates'].append(len(win) / (x2 - x1))
+    # annotate x-axis
     ticks = plt.xticks()
     plt.xticks(ticks[0], ticks[0]/rate, rotation=25)
-    plt.savefig('fig_%s.png' % os.path.basename(nexname))
 
-    plt.figure()
-    for x, isi in res[nexname]['isis']:
+    # plot the ISIs over time (x-axis normalized!)
+    plt.subplot(gs[1,0])
+    for isi in res[nexname]['isis']:
         if len(isi) > 3:
             plt.plot(np.array(range(len(isi))) / float(len(isi)), isi, '.-')
-    plt.savefig('fig_isi_tmpnorm_%s.png' % os.path.basename(nexname))
-
+    plt.savefig('fig_%s.png' % os.path.basename(nexname))
     plt.show()
 
-plt.figure()
-plt.axes([0.1, 0.1, 0.5, 0.8])
-plt.title('CV against force level')
-for key, bla in res.items():
-    plt.plot(bla['flevels'] / np.max(bla['flevels']),
-             bla['cvs'],
-             '*-',
-             label=os.path.basename(key))
-plt.legend(loc=(1, 0))
-plt.savefig('cv_vs_force.png')
+
+# plot CV and firing rate in relation to stimulation force level
+fig = plt.figure()
+gs = gridspec.GridSpec(2, 2)
+p1 = fig.add_subplot(gs[0, 0])
+p1.set_title('CV against force level')
+p2 = plt.subplot(gs[0, 1])
+p2.set_title('rate against force level')
+p3 = plt.subplot(gs[1, :])
+
+for key, result in res.items():
+    flevels = result['flevels'] / np.max(result['flevels'])
+    p1.plot(flevels, result['cvs'], '*-')
+    p2.plot(flevels, result['rates'], '*-')
+    p3.plot(0, 0, label=os.path.basename(key))
+
+p3.legend()
+plt.savefig('rates_vs_force_new.png')
 plt.show()
-
-plt.figure()
-plt.axes([0.1, 0.1, 0.5, 0.8])
-plt.title('rate against force level')
-for key, bla in res.items():
-    plt.plot(bla['flevels'] / np.max(bla['flevels']),
-             bla['rates'],
-             '*-',
-             label=os.path.basename(key))
-plt.legend(loc=(1, 0))
-plt.savefig('rates_vs_force.png')
-plt.show()
-
-
-# isi over spike-number
-plt.figure()
-for win in wins:
-    plt.plot(np.diff(win), '.')
-plt.savefig('isi.png')
-plt.show()
-
