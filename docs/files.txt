@@ -1,0 +1,42 @@
+
+some statistics on the files from visual inspection
+
+
+2010-03-19-u1_sorted.adicht
+    7 blocks m
+    1 block t
+2010-03-19-u2_iSortd.adicht
+    8 blocks m
+    1 block t
+2010-03-19-u4_iSortd.adicht
+    8 blocks m
+    1 block t
+2010-09-10-u3_sorted.adicht
+    1 block m (6 levels)
+    1 block t
+2010-12-02-u1_sorted.adicht
+    1 block m (6 levels)
+    1 block t
+2010-12-02-u2_sorted.adicht
+    1 block m (6 levels)
+    1 block empty
+    1 block t
+2010-12-13-u3_iSortd.adicht
+    1 block empty
+    1 block m (6 levels)
+    1 block t
+    1 block empty
+2010-12-13-u4_iSortd.adicht
+    1 block m (6 levels)
+    1 block t
+    2 blocks empty
+2010-12-14-u4_sorted.adicht
+    1 block empty
+    1 block m (6 levels)
+    1 block t
+    1 block empty
+2010-12-14-u5_iSortd.adicht
+    1 block empty
+    1 block m (6 levels)
+    1 block t
+    1 block empty
