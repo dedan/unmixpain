@@ -77,7 +77,14 @@ class NexIOplus(NeuroExplorerIO):
         data array and has to be extracted by the indexes in other variables
         """
 
-        train = super(NexIOplus, self).read_segment().spiketrains[0]
+        nex_block = super(NexIOplus, self).read_segment()
+
+        # create a new block to return in the end
+        block = Block(name='mechanical and heat stimulation recording',
+                      description=nex_block.annotations,
+                      file_origin=self.filename)
+
+        train = nex_block.spiketrains[0]
 
         mat = sio.loadmat(self.matname, squeeze_me=True)
         n_channels, n_segments = np.shape(mat['datastart'])
@@ -85,14 +92,6 @@ class NexIOplus(NeuroExplorerIO):
         # convert blocktimes to posix format (from stupid matlab convention)
         blockt_pos = (mat['blocktimes'] - 719529) * 86400.0
         blockt_pos = blockt_pos - blockt_pos[0]
-
-        # TODO make sure that spiketimes are in relation to first blocktimes
-        # and not to the very beginning of the recording. Very beginning to
-        # first blocktime has often offset around 10s
-
-        # create a new block to return in the end
-        block = Block()
-
 
         for segment in range(n_segments):
 
