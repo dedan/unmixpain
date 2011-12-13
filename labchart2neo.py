@@ -19,6 +19,10 @@ logger = logging.getLogger()
 data_folder = '/Users/dedan/projects/fu/data/'
 out_folder = path.join(data_folder, 'out')
 
+# flags for what to plot
+plot_stepper = False
+plot_section_markers = False
+
 # downsample to save working memory, but !!! if the factor is two high
 # the stepper activity detection fails for small force levels.
 downsample_factor = 10
@@ -112,17 +116,20 @@ for i, nexname in enumerate(nexlist):
         start = stepper.t_start * pq.s
 
         x_range = range(int(floor(start*rate)), int(floor(start*rate))+length)
-        plt.plot(x_range, stepper, 'b')
         plt.plot(x_range, force, 'g')
         plt.plot(x_range, temp, 'r')
+        if plot_stepper:
+            plt.plot(x_range, stepper, 'b')
 
         # extract windows in which stimulation took place
         onoffs = extract_onsets(stepper, stepper_thresh, win_width)
         for x1, x2 in onoffs:
             flevel = np.max(force[x1:x2]) - np.min(force)
             res[nexname]['flevels'].append(flevel)
-            l = plt.plot([x1 + start * rate, x2 + start * rate], [0, 0], 'v')
-            l[0].set_markersize(10)
+            if plot_section_markers:
+                start_r = start * rate
+                l = plt.plot([x1 + start_r, x2 + start_r], [0, 0], 'v')
+                l[0].set_markersize(10)
 
         # plot the spiketrain of segment
         if np.any(train):
