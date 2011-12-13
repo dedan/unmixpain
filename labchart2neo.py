@@ -151,7 +151,7 @@ for i, nexname in enumerate(nexlist):
         if len(isi) > 3:
             bla = res[nexname]['flevels'][i] / np.max(res[nexname]['flevels'])
             c = cm.jet(bla, 1)
-            plt.plot(np.array(range(len(isi))) / float(len(isi)), isi, '.-', color=c)
+            plt.plot(np.array(range(len(isi))) / float(len(isi)-1), isi, '.-', color=c)
     plt.savefig(path.join(out_folder, 'fig_%s.png') % path.basename(nexname))
     plt.show()
 
