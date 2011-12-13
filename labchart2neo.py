@@ -27,9 +27,6 @@ plot_section_markers = False
 # the stepper activity detection fails for small force levels.
 downsample_factor = 10
 
-# threshold for sorting out boring (not stimulation) segments
-boring_thresh = 1
-
 # threshold to detect activity of the stepper-motor
 stepper_thresh = 0.02
 
@@ -58,15 +55,6 @@ def extract_onsets(signal, threshold, win_width):
     onoffs = [(onoffs[i][1], onoffs[i+1][0]) for i in range(len(onoffs)-1)]
     # don't use the times in between
     return onoffs[::2]
-
-
-def is_boring_segment(signals, threshold):
-    '''returns True if not stimulation took place (no variation in signal)'''
-    is_boring = True
-    for signal in signals:
-        if np.max(signal) - np.min(signal) > threshold:
-            is_boring = False
-    return is_boring
 
 
 def cv(train):
@@ -107,9 +95,6 @@ for i, nexname in enumerate(nexlist):
             stepper = segment.analogsignals[1]
             force = segment.analogsignals[2]
             temp = segment.analogsignals[3]
-
-        if is_boring_segment([stepper, temp], boring_thresh):
-            continue
 
         rate = stepper.sampling_rate
         length = len(stepper)

@@ -49,7 +49,7 @@ class NexIOplus(NeuroExplorerIO):
         them to the neo data structure from the nex file
     """
 
-    def __init__(self, filename=None, downsample=1):
+    def __init__(self, filename=None, downsample=1, boring_threshold=1):
         """init and check whether matfile available
 
         also provides optional downsampling because the mechanical and temp-
@@ -69,6 +69,7 @@ class NexIOplus(NeuroExplorerIO):
         self.matname = self.filename[:-3] + 'mat'
         if not os.path.exists(self.matname):
             raise IOError('corresponding mat file not found')
+        self.boring_thres = boring_threshold
 
     def read(self):
         """read the nex file and add the analog signals from matfile
@@ -95,8 +96,8 @@ class NexIOplus(NeuroExplorerIO):
 
         for segment in range(n_segments):
 
-            # TODO add description and filename and co
             seg = Segment(name=str(segment))
+            is_boring = True
 
             for channel in range(n_channels):
 
@@ -105,6 +106,11 @@ class NexIOplus(NeuroExplorerIO):
                 end = mat['dataend'][channel, segment]
 
                 tmp_sig = mat['data'][start:end][::self.f_down]
+
+                if ((n_channels == 3) and (channel in [0, 2]) or
+                    (n_channels == 4) and (channel in [1, 3])):
+                    if np.max(tmp_sig) - np.min(tmp_sig) > self.boring_thres:
+                        is_boring = False
                 ansig = AnalogSignal(signal=tmp_sig,
                                      name=mat['titles'][channel],
                                      # TODO use unittextmap properly
@@ -113,6 +119,11 @@ class NexIOplus(NeuroExplorerIO):
                                      t_start=blockt_pos[segment] * pq.s)
                 seg.analogsignals.append(ansig)
 
+            # ignore segments without heat or mechanical stimulation
+            if is_boring:
+                continue
+
+            # last segment has to be treated differently
             if segment + 1 < n_segments:
                 t = train[(train > blockt_pos[segment]) &
                           (train < blockt_pos[segment+1])]
