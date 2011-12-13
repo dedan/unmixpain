@@ -92,6 +92,7 @@ for i, nexname in enumerate(nexlist):
     plt.title(path.basename(nexname))
     for segment in block.segments:
 
+        train = segment.spiketrains[0]
         if len(segment.analogsignals) == 3:
             spikes = []
             stepper = segment.analogsignals[0]
@@ -124,7 +125,6 @@ for i, nexname in enumerate(nexlist):
             l[0].set_markersize(10)
 
         # plot the spiketrain of segment
-        train = segment.spiketrains[0]
         if np.any(train):
             tmp = np.zeros(length)
             for spike in train:
@@ -146,12 +146,28 @@ for i, nexname in enumerate(nexlist):
     plt.xticks(ticks[0], ticks[0]/rate, rotation=25)
 
     # plot the ISIs over time (x-axis normalized!)
-    plt.subplot(gs[1,0])
+    plt.subplot(gs[1, 0])
     for i, isi in enumerate(res[nexname]['isis']):
         if len(isi) > 3:
             bla = res[nexname]['flevels'][i] / np.max(res[nexname]['flevels'])
             c = cm.jet(bla, 1)
             plt.plot(np.array(range(len(isi))) / float(len(isi)-1), isi, '.-', color=c)
+    plt.title('relative time vs. ISI')
+    plt.xlabel('normalized time')
+    plt.ylabel('ISI')
+
+    # plot ISIs over temperature
+    # TODO should I extract the temperature stimulation onset?
+    plt.subplot(gs[1, 1])
+    # find the spikes that occured during temp stimulation
+    temp_spikes = train[train > temp.t_start]
+    # extract the temperature for each of the spikes
+    idx = [int(floor((spike - start) * rate)) for spike in temp_spikes]
+    temp_t = temp[idx]
+    plt.plot(temp_t[:-1], np.diff(temp_spikes), '.')
+    plt.title('temperature vs. ISI')
+    plt.xlabel('temperature')
+
     plt.savefig(path.join(out_folder, 'fig_%s.png') % path.basename(nexname))
     plt.show()
 
