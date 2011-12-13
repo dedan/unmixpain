@@ -111,9 +111,9 @@ for i, nexname in enumerate(nexlist):
         if is_boring_segment([stepper, temp], boring_thresh):
             continue
 
-        rate = stepper.sampling_rate * 1/pq.s
+        rate = stepper.sampling_rate
         length = len(stepper)
-        start = stepper.t_start * pq.s
+        start = stepper.t_start
 
         x_range = range(int(floor(start*rate)), int(floor(start*rate))+length)
         plt.plot(x_range, force, 'g')

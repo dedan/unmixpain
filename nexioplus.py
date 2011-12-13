@@ -110,8 +110,8 @@ class NexIOplus(NeuroExplorerIO):
                                      name=mat['titles'][channel],
                                      # TODO use unittextmap properly
                                      units=mat['unittext'].item(),
-                                     sampling_rate=rate,
-                                     t_start=blockt_pos[segment])
+                                     sampling_rate=rate * (1/pq.s),
+                                     t_start=blockt_pos[segment] * pq.s)
                 seg.analogsignals.append(ansig)
 
             if segment + 1 < n_segments:
