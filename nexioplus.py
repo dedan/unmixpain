@@ -61,15 +61,11 @@ class NexIOplus(NeuroExplorerIO):
                       only each n-th value of the original signal is used
         """
         super(NexIOplus, self).__init__(filename)
-        if not isinstance(downsample, int):
-            raise ValueError('downsampling value has to be int')
-        else:
-            # the downsampling factor
-            self.f_down = float(downsample)
+        self.f_down = float(downsample)
         self.matname = self.filename[:-3] + 'mat'
+        self.boring_thres = boring_threshold
         if not os.path.exists(self.matname):
             raise IOError('corresponding mat file not found')
-        self.boring_thres = boring_threshold
 
     def read(self):
         """read the nex file and add the analog signals from matfile
@@ -84,9 +80,9 @@ class NexIOplus(NeuroExplorerIO):
         block = Block(name='mechanical and heat stimulation recording',
                       description=nex_block.annotations,
                       file_origin=self.filename)
-
         train = nex_block.spiketrains[0]
 
+        # load data from matlab file
         mat = sio.loadmat(self.matname, squeeze_me=True)
         n_channels, n_segments = np.shape(mat['datastart'])
 
@@ -97,20 +93,25 @@ class NexIOplus(NeuroExplorerIO):
         for segment in range(n_segments):
 
             seg = Segment(name=str(segment))
-            is_boring = True
-
             for channel in range(n_channels):
 
                 rate = mat['samplerate'][channel, segment] / self.f_down
                 start = mat['datastart'][channel, segment] - 1
                 end = mat['dataend'][channel, segment]
-
                 tmp_sig = mat['data'][start:end][::self.f_down]
 
-                if ((n_channels == 3) and (channel in [0, 2]) or
-                    (n_channels == 4) and (channel in [1, 3])):
+                # check whether stimulation took place
+                if (n_channels, channel) in [(3, 0), (4, 1)]:
+                    print 'in mechcheck'
                     if np.max(tmp_sig) - np.min(tmp_sig) > self.boring_thres:
-                        is_boring = False
+                        print 'mpassed'
+                        seg.annotate(mechanical=True)
+                if (n_channels, channel) in [(3, 2), (4, 3)]:
+                    print 'in tempcheck'
+                    if np.max(tmp_sig) - np.min(tmp_sig) > self.boring_thres:
+                        print 'tpassed'
+                        seg.annotate(temp=True)
+
                 ansig = AnalogSignal(signal=tmp_sig,
                                      name=mat['titles'][channel],
                                      # TODO use unittextmap properly
@@ -120,7 +121,7 @@ class NexIOplus(NeuroExplorerIO):
                 seg.analogsignals.append(ansig)
 
             # ignore segments without heat or mechanical stimulation
-            if is_boring:
+            if not seg.annotations:
                 continue
 
             # last segment has to be treated differently
@@ -132,18 +133,9 @@ class NexIOplus(NeuroExplorerIO):
                 t = train[train > blockt_pos[segment]]
                 end = blockt_pos[segment] + len(ansig)/rate
 
-            strain = SpikeTrain(times=t.magnitude,
-                                units=train.units,
-                                t_start=blockt_pos[segment],
-                                t_stop=end)
-
-            seg.spiketrains.append(strain)
-
+            seg.spiketrains.append(SpikeTrain(times=t.magnitude,
+                                   units=train.units,
+                                   t_start=blockt_pos[segment],
+                                   t_stop=end))
             block.segments.append(seg)
         return block
-
-
-
-
-
-
