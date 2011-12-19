@@ -37,7 +37,7 @@ import os
 import numpy as np
 import scipy.io as sio
 from neo.io.neuroexplorerio import NeuroExplorerIO
-from neo.core import AnalogSignal, Block, Segment, SpikeTrain
+from neo.core import AnalogSignal, Block, Segment, SpikeTrain, Epoch
 import quantities as pq
 
 
@@ -49,7 +49,12 @@ class NexIOplus(NeuroExplorerIO):
         them to the neo data structure from the nex file
     """
 
-    def __init__(self, filename=None, downsample=1, boring_threshold=1):
+    def __init__(self,
+                 filename=None,
+                 downsample=1,
+                 boring_threshold=1,
+                 stepper_threshold=0.02,
+                 win_width=100):
         """init and check whether matfile available
 
         also provides optional downsampling because the mechanical and temp-
@@ -63,7 +68,9 @@ class NexIOplus(NeuroExplorerIO):
         super(NexIOplus, self).__init__(filename)
         self.f_down = float(downsample)
         self.matname = self.filename[:-3] + 'mat'
-        self.boring_thres = boring_threshold
+        self.boring_thresh = boring_threshold
+        self.stepper_thresh = stepper_threshold
+        self.win_width = win_width
         if not os.path.exists(self.matname):
             raise IOError('corresponding mat file not found')
 
@@ -100,16 +107,15 @@ class NexIOplus(NeuroExplorerIO):
                 end = mat['dataend'][channel, segment]
                 tmp_sig = mat['data'][start:end][::self.f_down]
 
-                # check whether stimulation took place
+                # check for mechanical stimulation
                 if (n_channels, channel) in [(3, 0), (4, 1)]:
-                    print 'in mechcheck'
-                    if np.max(tmp_sig) - np.min(tmp_sig) > self.boring_thres:
-                        print 'mpassed'
+                    onoffs = self._extract_onsets(tmp_sig)
+                    for i, (x1, x2) in enumerate(onoffs):
+                        seg.epochs.append(Epoch(x1, x2-x1, i+1))
+                    if onoffs:
                         seg.annotate(mechanical=True)
                 if (n_channels, channel) in [(3, 2), (4, 3)]:
-                    print 'in tempcheck'
-                    if np.max(tmp_sig) - np.min(tmp_sig) > self.boring_thres:
-                        print 'tpassed'
+                    if np.max(tmp_sig) - np.min(tmp_sig) > self.boring_thresh:
                         seg.annotate(temp=True)
 
                 ansig = AnalogSignal(signal=tmp_sig,
@@ -139,3 +145,26 @@ class NexIOplus(NeuroExplorerIO):
                                    t_stop=end))
             block.segments.append(seg)
         return block
+
+    def _extract_onsets(self, signal):
+        '''find onsets in stepper signal (stupid but workin version)
+
+        Simple looks whether a certain threshold is exceeded. Signal is first
+        convolved with a rectangular kernel to be less susceptible to small
+        spikes.
+        '''
+        kernel = np.ones(self.win_width) / self.win_width
+        s = np.convolve(abs(signal), kernel)
+        x = 0
+        onoffs = []
+        for i, y in enumerate(s):
+            if y > self.stepper_thresh:
+                if x == 0:
+                    x = i
+            elif not x == 0:
+                onoffs.append((x, i))
+                x = 0
+        # sort them differently because my algo is so stupid
+        onoffs = [(onoffs[i][1], onoffs[i+1][0]) for i in range(len(onoffs)-1)]
+        # don't use the times in between
+        return onoffs[::2]
