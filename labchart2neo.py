@@ -131,8 +131,11 @@ for nexname in [nexlist[0]]:
     temp_spikes = train[train > temp.t_start]
     # extract the temperature for each of the spikes
     idx = [int(floor((spike - start) * rate)) for spike in temp_spikes]
-    temp_t = temp[idx]
-    plt.plot(temp_t[:-1], np.diff(temp_spikes), '.')
+    temp_t = temp[idx[:-1]]
+    isis = np.diff(temp_spikes)
+    for i in range(len(temp_t)):
+        c = cm.jet(i / float(len(temp_t) - 1), 1)
+        plt.plot(temp_t[i], isis[i], '.', color=c)
     plt.title('temperature vs. ISI')
     plt.xlabel('temperature')
 
