@@ -37,7 +37,7 @@ import os
 import numpy as np
 import scipy.io as sio
 from neo.io.neuroexplorerio import NeuroExplorerIO
-from neo.core import AnalogSignal, Block, Segment, SpikeTrain
+from neo.core import AnalogSignal, Block, Segment, SpikeTrain, Epoch
 import quantities as pq
 
 
@@ -49,7 +49,12 @@ class NexIOplus(NeuroExplorerIO):
         them to the neo data structure from the nex file
     """
 
-    def __init__(self, filename=None, downsample=1):
+    def __init__(self,
+                 filename=None,
+                 downsample=1,
+                 boring_threshold=1,
+                 stepper_threshold=0.02,
+                 win_width=100):
         """init and check whether matfile available
 
         also provides optional downsampling because the mechanical and temp-
@@ -61,12 +66,11 @@ class NexIOplus(NeuroExplorerIO):
                       only each n-th value of the original signal is used
         """
         super(NexIOplus, self).__init__(filename)
-        if not isinstance(downsample, int):
-            raise ValueError('downsampling value has to be int')
-        else:
-            # the downsampling factor
-            self.f_down = float(downsample)
+        self.f_down = float(downsample)
         self.matname = self.filename[:-3] + 'mat'
+        self.boring_thresh = boring_threshold
+        self.stepper_thresh = stepper_threshold
+        self.win_width = win_width
         if not os.path.exists(self.matname):
             raise IOError('corresponding mat file not found')
 
@@ -77,8 +81,15 @@ class NexIOplus(NeuroExplorerIO):
         data array and has to be extracted by the indexes in other variables
         """
 
-        train = super(NexIOplus, self).read_segment().spiketrains[0]
+        nex_block = super(NexIOplus, self).read_segment()
 
+        # create a new block to return in the end
+        block = Block(name='mechanical and heat stimulation recording',
+                      description=nex_block.annotations,
+                      file_origin=self.filename)
+        train = nex_block.spiketrains[0]
+
+        # load data from matlab file
         mat = sio.loadmat(self.matname, squeeze_me=True)
         n_channels, n_segments = np.shape(mat['datastart'])
 
@@ -86,26 +97,27 @@ class NexIOplus(NeuroExplorerIO):
         blockt_pos = (mat['blocktimes'] - 719529) * 86400.0
         blockt_pos = blockt_pos - blockt_pos[0]
 
-        # TODO make sure that spiketimes are in relation to first blocktimes
-        # and not to the very beginning of the recording. Very beginning to
-        # first blocktime has often offset around 10s
-
-        # create a new block to return in the end
-        block = Block()
-
-
         for segment in range(n_segments):
 
-            # TODO add description and filename and co
             seg = Segment(name=str(segment))
-
             for channel in range(n_channels):
 
                 rate = mat['samplerate'][channel, segment] / self.f_down
                 start = mat['datastart'][channel, segment] - 1
                 end = mat['dataend'][channel, segment]
-
                 tmp_sig = mat['data'][start:end][::self.f_down]
+
+                # check for mechanical stimulation
+                if (n_channels, channel) in [(3, 0), (4, 1)]:
+                    onoffs = self._extract_onsets(tmp_sig)
+                    for i, (x1, x2) in enumerate(onoffs):
+                        seg.epochs.append(Epoch(x1, x2-x1, i+1))
+                    if onoffs:
+                        seg.annotate(mechanical=True)
+                if (n_channels, channel) in [(3, 2), (4, 3)]:
+                    if np.max(tmp_sig) - np.min(tmp_sig) > self.boring_thresh:
+                        seg.annotate(temp=True)
+
                 ansig = AnalogSignal(signal=tmp_sig,
                                      name=mat['titles'][channel],
                                      # TODO use unittextmap properly
@@ -114,6 +126,11 @@ class NexIOplus(NeuroExplorerIO):
                                      t_start=blockt_pos[segment] * pq.s)
                 seg.analogsignals.append(ansig)
 
+            # ignore segments without heat or mechanical stimulation
+            if not seg.annotations:
+                continue
+
+            # last segment has to be treated differently
             if segment + 1 < n_segments:
                 t = train[(train > blockt_pos[segment]) &
                           (train < blockt_pos[segment+1])]
@@ -122,18 +139,32 @@ class NexIOplus(NeuroExplorerIO):
                 t = train[train > blockt_pos[segment]]
                 end = blockt_pos[segment] + len(ansig)/rate
 
-            strain = SpikeTrain(times=t.magnitude,
-                                units=train.units,
-                                t_start=blockt_pos[segment],
-                                t_stop=end)
-
-            seg.spiketrains.append(strain)
-
+            seg.spiketrains.append(SpikeTrain(times=t.magnitude,
+                                   units=train.units,
+                                   t_start=blockt_pos[segment],
+                                   t_stop=end))
             block.segments.append(seg)
         return block
 
+    def _extract_onsets(self, signal):
+        '''find onsets in stepper signal (stupid but workin version)
 
-
-
-
-
+        Simple looks whether a certain threshold is exceeded. Signal is first
+        convolved with a rectangular kernel to be less susceptible to small
+        spikes.
+        '''
+        kernel = np.ones(self.win_width) / self.win_width
+        s = np.convolve(abs(signal), kernel, 'same')
+        x = 0
+        onoffs = []
+        for i, y in enumerate(s):
+            if y > self.stepper_thresh:
+                if x == 0:
+                    x = i
+            elif not x == 0:
+                onoffs.append((x, i))
+                x = 0
+        # sort them differently because my algo is so stupid
+        onoffs = [(onoffs[i][1], onoffs[i+1][0]) for i in range(len(onoffs)-1)]
+        # don't use the times in between
+        return onoffs[::2]

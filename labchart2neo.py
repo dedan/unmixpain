@@ -27,46 +27,11 @@ plot_section_markers = False
 # the stepper activity detection fails for small force levels.
 downsample_factor = 10
 
-# threshold for sorting out boring (not stimulation) segments
-boring_thresh = 1
-
 # threshold to detect activity of the stepper-motor
 stepper_thresh = 0.02
 
 # width of the kernel used for smoothing the stepper signal
 win_width = 100
-
-
-def extract_onsets(signal, threshold, win_width):
-    '''find onsets in stepper signal (stupid but workin version)
-
-    Simple looks whether a certain threshold is exceeded. Signal is first
-    convolved with a rectangular kernel to be less susceptible to small
-    spikes.
-    '''
-    s = np.convolve(abs(signal), np.ones(win_width) / win_width)
-    x = 0
-    onoffs = []
-    for i, y in enumerate(s):
-        if y > threshold:
-            if x == 0:
-                x = i
-        elif not x == 0:
-            onoffs.append((x, i))
-            x = 0
-    # sort them differently because my algo is so stupid
-    onoffs = [(onoffs[i][1], onoffs[i+1][0]) for i in range(len(onoffs)-1)]
-    # don't use the times in between
-    return onoffs[::2]
-
-
-def is_boring_segment(signals, threshold):
-    '''returns True if not stimulation took place (no variation in signal)'''
-    is_boring = True
-    for signal in signals:
-        if np.max(signal) - np.min(signal) > threshold:
-            is_boring = False
-    return is_boring
 
 
 def cv(train):
@@ -80,8 +45,8 @@ nexlist = glob.glob(data_folder + '*.nex')
 res = {}
 wins = []
 
-# for nexname in [nexlist[2]]:
-for i, nexname in enumerate(nexlist):
+for nexname in [nexlist[0]]:
+# for i, nexname in enumerate(nexlist):
 
     print ' '
     logger.info('read in: %s' % nexname)
@@ -108,40 +73,36 @@ for i, nexname in enumerate(nexlist):
             force = segment.analogsignals[2]
             temp = segment.analogsignals[3]
 
-        if is_boring_segment([stepper, temp], boring_thresh):
-            continue
-
         rate = stepper.sampling_rate
         length = len(stepper)
         start = stepper.t_start
 
+        # plot the analog signals
         x_range = range(int(floor(start*rate)), int(floor(start*rate))+length)
         plt.plot(x_range, force, 'g')
         plt.plot(x_range, temp, 'r')
         if plot_stepper:
             plt.plot(x_range, stepper, 'b')
 
-        # extract windows in which stimulation took place
-        onoffs = extract_onsets(stepper, stepper_thresh, win_width)
-        for x1, x2 in onoffs:
-            flevel = np.max(force[x1:x2]) - np.min(force)
-            res[nexname]['flevels'].append(flevel)
-            if plot_section_markers:
-                start_r = start * rate
-                l = plt.plot([x1 + start_r, x2 + start_r], [0, 0], 'v')
-                l[0].set_markersize(10)
-
-        # plot the spiketrain of segment
+        # plot the spiketrain
         if np.any(train):
             tmp = np.zeros(length)
             for spike in train:
                 tmp[int(floor((spike - start) * rate))] = 1
             plt.plot(x_range, tmp, 'k', linewidth=0.3)
 
-        # extract spiketrain during stimulation
-        onoffs_time = [(x1/rate, x2/rate) for x1, x2 in onoffs]
-        for x1, x2 in onoffs_time:
-            win = train[(train > x1+start) & (train < x2+start)]
+        # compute features in stimulation windows
+        for epoch in segment.epochs:
+            x1, x2 = epoch.time, epoch.time + epoch.duration
+            x1_t, x2_t = (x1 / rate) + start, (x2 / rate) + start
+            flevel = np.max(force[x1:x2]) - np.min(force)
+            res[nexname]['flevels'].append(flevel)
+            if plot_section_markers:
+                start_r = start * rate
+                l = plt.plot([x1 + start_r, x2 + start_r], [0, 0], 'v')
+                l[0].set_markersize(10)
+            # extract spiketrain during stimulation
+            win = train[(train > x1_t) & (train < x2_t)]
 
             wins.append(win)
             res[nexname]['isis'].append(np.diff(win))
