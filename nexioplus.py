@@ -154,7 +154,7 @@ class NexIOplus(NeuroExplorerIO):
         spikes.
         '''
         kernel = np.ones(self.win_width) / self.win_width
-        s = np.convolve(abs(signal), kernel)
+        s = np.convolve(abs(signal), kernel, 'same')
         x = 0
         onoffs = []
         for i, y in enumerate(s):
