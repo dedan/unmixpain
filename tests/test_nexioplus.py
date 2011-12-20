@@ -78,16 +78,13 @@ class test_nexioplus(unittest.TestCase):
             self.assert_(10 < spike_pos_signal < 30)
 
     def test_downsample(self):
-        """docstring for test_downsample"""
-        pass
-
-    def test_all_in_one_segment(self):
-        """make sure that all epochs are found
-
-        also when the different blocks are not separated in the labchart file
-        """
-        pass
-
+        """make sure that downsampling changes the size correctly"""
+        downsample_factor = 10
+        original_length = len(self.block.segments[1].analogsignals[0])
+        down_block = NexIOplus(filename=self.fname,
+                               downsample=downsample_factor).read()
+        down_length = len(down_block.segments[1].analogsignals[0])
+        self.assertEqual(original_length / downsample_factor, down_length)
 
 if __name__ == '__main__':
     unittest.main()
