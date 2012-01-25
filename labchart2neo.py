@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.DEBUG,
                     datefmt='%m-%d %H:%M')
 logger = logging.getLogger()
 
-data_folder = '/Users/dedan/projects/fu/data/'
+data_folder = '/Users/dedan/projects/fu/data/unmixpain/'
 out_folder = path.join(data_folder, 'out')
 
 # flags for what to plot
@@ -33,6 +33,8 @@ stepper_thresh = 0.02
 # width of the kernel used for smoothing the stepper signal
 win_width = 100
 
+# width of the kernel for the firing rate estimate in seconds
+kernel_delta_t = 0.1
 
 def cv(train):
     '''compute the coefficient of variation'''
@@ -54,11 +56,13 @@ for nexname in [nexlist[0]]:
 
     res[nexname] = {'flevels': [], 'cvs': [], 'rates': [], 'isis': []}
 
-    plt.figure()
-    gs = gridspec.GridSpec(2, 2)
+    fig = plt.figure()
+    gs = gridspec.GridSpec(3, 2)
     gs.update(hspace=0.5)
-    plt.subplot(gs[0,:])
-    plt.title(path.basename(nexname))
+    p_firing = fig.add_subplot(gs[0, :])
+    p_all = fig.add_subplot(gs[1, :])
+
+    p_firing.set_title(path.basename(nexname))
     for segment in block.segments:
 
         train = segment.spiketrains[0]
@@ -79,17 +83,22 @@ for nexname in [nexlist[0]]:
 
         # plot the analog signals
         x_range = range(int(floor(start*rate)), int(floor(start*rate))+length)
-        plt.plot(x_range, force, 'g')
-        plt.plot(x_range, temp, 'r')
+        p_all.plot(x_range, force, 'g')
+        p_all.plot(x_range, temp, 'r')
         if plot_stepper:
-            plt.plot(x_range, stepper, 'b')
+            p_all.plot(x_range, stepper, 'b')
 
         # plot the spiketrain
         if np.any(train):
             tmp = np.zeros(length)
             for spike in train:
                 tmp[int(floor((spike - start) * rate))] = 1
-            plt.plot(x_range, tmp, 'k', linewidth=0.3)
+            p_all.plot(x_range, tmp, 'k', linewidth=0.3)
+
+            kernel = np.ones(rate * kernel_delta_t) / kernel_delta_t
+            p_firing.plot(x_range, np.convolve(tmp, kernel, mode='same'), 'b')
+
+
 
         # compute features in stimulation windows
         for epoch in segment.epochs:
@@ -99,7 +108,7 @@ for nexname in [nexlist[0]]:
             res[nexname]['flevels'].append(flevel)
             if plot_section_markers:
                 start_r = start * rate
-                l = plt.plot([x1 + start_r, x2 + start_r], [0, 0], 'v')
+                l = p_all.plot([x1 + start_r, x2 + start_r], [0, 0], 'v')
                 l[0].set_markersize(10)
             # extract spiketrain during stimulation
             win = train[(train > x1_t) & (train < x2_t)]
@@ -109,12 +118,18 @@ for nexname in [nexlist[0]]:
             res[nexname]['cvs'].append(cv(win))
             res[nexname]['rates'].append(len(win) / (x2 - x1))
 
-    # annotate x-axis
+    # annotate axis
     ticks = plt.xticks()
-    plt.xticks(ticks[0], ticks[0]/rate, rotation=25)
+    p_all.set_xticks(ticks[0])
+    p_all.set_xticklabels(ticks[0]/rate, rotation=10)
+    p_all.set_xlabel('time')
+    p_firing.set_xticks(ticks[0])
+    p_firing.set_xticklabels(ticks[0]/rate, rotation=10)
+    p_firing.set_xlabel('time')
+    p_firing.set_ylabel('firing rate')
 
     # plot the ISIs over time (x-axis normalized!)
-    plt.subplot(gs[1, 0])
+    plt.subplot(gs[2, 0])
     for i, isi in enumerate(res[nexname]['isis']):
         if len(isi) > 3:
             bla = res[nexname]['flevels'][i] / np.max(res[nexname]['flevels'])
@@ -125,8 +140,7 @@ for nexname in [nexlist[0]]:
     plt.ylabel('ISI')
 
     # plot ISIs over temperature
-    # TODO should I extract the temperature stimulation onset?
-    plt.subplot(gs[1, 1])
+    plt.subplot(gs[2, 1])
     # find the spikes that occured during temp stimulation
     temp_spikes = train[train > temp.t_start]
     # extract the temperature for each of the spikes
