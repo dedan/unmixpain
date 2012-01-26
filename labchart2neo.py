@@ -21,7 +21,6 @@ data_folder = '/Users/dedan/projects/fu/data/unmixpain/'
 out_folder = path.join(data_folder, 'out')
 
 # flags for what to plot
-plot_stepper = False
 plot_section_markers = False
 
 # downsample to save working memory, but !!! if the factor is two high
@@ -57,13 +56,22 @@ for nexname in [nexlist[0]]:
 
     res[nexname] = {'flevels': [], 'cvs': [], 'rates': [], 'isis': []}
 
-    fig = plt.figure()
-    gs = gridspec.GridSpec(3, 2)
+    # prepare all the figures
+    fig_signal = plt.figure()
+    gs = gridspec.GridSpec(4, 1)
     gs.update(hspace=0.5)
-    p_firing = fig.add_subplot(gs[0, :])
-    p_all = fig.add_subplot(gs[1, :])
+    p_temp = fig_signal.add_subplot(gs[0, 0])
+    p_temp.set_title(path.basename(nexname))
+    p_mech = fig_signal.add_subplot(gs[1, 0])
+    p_spik = fig_signal.add_subplot(gs[2, 0])
+    p_esti = fig_signal.add_subplot(gs[3, 0])
 
-    p_firing.set_title(path.basename(nexname))
+    fig_res = plt.figure()
+    gs = gridspec.GridSpec(2, 2)
+    gs.update(hspace=0.5)
+    p_res_mech = fig_res.add_subplot(gs[0, 0])
+    p_res_temp = fig_res.add_subplot(gs[0, 1])
+
     for segment in block.segments:
 
         train = segment.spiketrains[0]
@@ -84,20 +92,18 @@ for nexname in [nexlist[0]]:
 
         # plot the analog signals
         x_range = range(int(floor(start*rate)), int(floor(start*rate))+length)
-        p_all.plot(x_range, force, 'g')
-        p_all.plot(x_range, temp, 'r')
-        if plot_stepper:
-            p_all.plot(x_range, stepper, 'b')
+        p_mech.plot(x_range, force, 'g')
+        p_temp.plot(x_range, temp, 'r')
 
         # plot the spiketrain
         if np.any(train):
             tmp = np.zeros(length)
             for spike in train:
                 tmp[int(floor((spike - start) * rate))] = 1
-            p_all.plot(x_range, tmp, 'k', linewidth=0.3)
+            p_spik.plot(x_range, tmp, 'k', linewidth=0.3)
 
             kernel = np.ones(rate * kernel_delta_t) / kernel_delta_t
-            p_firing.plot(x_range, np.convolve(tmp, kernel, mode='same'), 'b')
+            p_esti.plot(x_range, np.convolve(tmp, kernel, mode='same'), 'b')
 
 
 
@@ -120,28 +126,29 @@ for nexname in [nexlist[0]]:
             res[nexname]['rates'].append(float(len(win)) / (x2 - x1))
 
     # annotate axis
-    ticks = plt.xticks()
-    p_all.set_xticks(ticks[0])
-    p_all.set_xticklabels(ticks[0]/rate, rotation=10)
-    p_all.set_xlabel('time')
-    p_firing.set_xticks(ticks[0])
-    p_firing.set_xticklabels(ticks[0]/rate, rotation=10)
-    p_firing.set_xlabel('time')
-    p_firing.set_ylabel('firing rate')
+    ticks = p_esti.get_xticks()
+    p_esti.set_xticks(ticks)
+    p_esti.set_xticklabels(ticks/rate, rotation=10)
+    p_esti.set_xlabel('time')
+    p_esti.set_ylabel('firing rate')
+    p_temp.set_xticklabels([])
+    p_mech.set_xticklabels([])
+    p_spik.set_xticklabels([])
+    p_spik.set_xlim(p_mech.get_xlim())
+    p_esti.set_xlim(p_mech.get_xlim())
+    fig_signal.savefig(path.join(out_folder, 'fig_signal_%s.png') % path.basename(nexname))
 
     # plot the ISIs over time (x-axis normalized!)
-    plt.subplot(gs[2, 0])
     for i, isi in enumerate(res[nexname]['isis']):
         if len(isi) > 3:
             bla = res[nexname]['flevels'][i] / np.max(res[nexname]['flevels'])
             c = cm.jet(bla, 1)
-            plt.plot(np.array(range(len(isi))) / float(len(isi)-1), isi, '.-', color=c)
-    plt.title('relative time vs. ISI')
-    plt.xlabel('normalized time')
-    plt.ylabel('ISI')
+            p_res_mech.plot(np.array(range(len(isi))) / float(len(isi)-1), isi, '.-', color=c)
+    p_res_mech.set_title('relative time vs. ISI')
+    p_res_mech.set_xlabel('normalized time')
+    p_res_mech.set_ylabel('ISI')
 
     # plot ISIs over temperature
-    plt.subplot(gs[2, 1])
     # find the spikes that occured during temp stimulation
     temp_spikes = train[train > temp.t_start]
     # extract the temperature for each of the spikes
@@ -150,11 +157,11 @@ for nexname in [nexlist[0]]:
     isis = np.diff(temp_spikes)
     for i in range(len(temp_t)):
         c = cm.jet(i / float(len(temp_t) - 1), 1)
-        plt.plot(temp_t[i], isis[i], '.', color=c)
-    plt.title('temperature vs. ISI')
-    plt.xlabel('temperature')
+        p_res_temp.plot(temp_t[i], isis[i], '.', color=c)
+    p_res_temp.set_title('temperature vs. ISI')
+    p_res_temp.set_xlabel('temperature')
+    fig_res.savefig(path.join(out_folder, 'fig_res_%s.png') % path.basename(nexname))
 
-    plt.savefig(path.join(out_folder, 'fig_%s.png') % path.basename(nexname))
     plt.show()
 
 
