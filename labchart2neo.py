@@ -116,7 +116,7 @@ for nexname in [nexlist[0]]:
             wins.append(win)
             res[nexname]['isis'].append(np.diff(win))
             res[nexname]['cvs'].append(cv(win))
-            res[nexname]['rates'].append(len(win) / (x2 - x1))
+            res[nexname]['rates'].append(float(len(win)) / (x2 - x1))
 
     # annotate axis
     ticks = plt.xticks()
