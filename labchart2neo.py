@@ -1,4 +1,5 @@
 
+import pickle
 import glob
 import logging
 from nexioplus import NexIOplus
@@ -105,7 +106,7 @@ for nexname in [nexlist[0]]:
             x1, x2 = epoch.time, epoch.time + epoch.duration
             x1_t, x2_t = (x1 / rate) + start, (x2 / rate) + start
             flevel = np.max(force[x1:x2]) - np.min(force)
-            res[nexname]['flevels'].append(flevel)
+            res[nexname]['flevels'].append(flevel.magnitude)
             if plot_section_markers:
                 start_r = start * rate
                 l = p_all.plot([x1 + start_r, x2 + start_r], [0, 0], 'v')
@@ -114,8 +115,8 @@ for nexname in [nexlist[0]]:
             win = train[(train > x1_t) & (train < x2_t)]
 
             wins.append(win)
-            res[nexname]['isis'].append(np.diff(win))
-            res[nexname]['cvs'].append(cv(win))
+            res[nexname]['isis'].append(np.diff(win).magnitude)
+            res[nexname]['cvs'].append(cv(win).magnitude)
             res[nexname]['rates'].append(float(len(win)) / (x2 - x1))
 
     # annotate axis
@@ -175,3 +176,4 @@ for key, result in res.items():
 p3.legend()
 plt.savefig(path.join(out_folder, 'rates_vs_force_new.png'))
 plt.show()
+pickle.dump(res, open(path.join(out_folder, 'results.pickle'), 'w'))
