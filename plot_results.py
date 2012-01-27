@@ -44,9 +44,9 @@ for key, result in res.items():
     p_res_mech.set_ylabel('ISI')
 
     # plot ISIs over temperature
+    min_temp = result['temp_range'][0]
+    max_temp = result['temp_range'][1]
     for i, temp_t in enumerate(result['temp_t']):
-        min_temp = result['temp_range'][0]
-        max_temp = result['temp_range'][1]
         c = cm.jet((temp_t - min_temp) / (max_temp - min_temp), 1)
         pp = p_res_temp.plot(i, result['temp_isis'][i], '.-', color=c)
     axins1 = inset_axes(p_res_temp, width="50%", height="5%", loc=1)
@@ -67,19 +67,45 @@ for subsample, units in subsamples.items():
     # plot CV and firing rate in relation to stimulation force level
     fig = plt.figure()
     gs = gridspec.GridSpec(2, 2)
-    p1 = fig.add_subplot(gs[0, 0])
-    p1.set_title('CV against force level')
-    p2 = plt.subplot(gs[0, 1])
-    p2.set_title('rate against force level')
-    p3 = plt.subplot(gs[1, :])
+    gs.update(hspace=0.5, wspace=0.5)
+    p_cv = fig.add_subplot(gs[0, 0])
+    p_cv.set_title('CV against force level')
+    p_cv.set_xlabel('force')
+    p_cv.set_ylabel('CV')
+    p_rate = plt.subplot(gs[0, 1])
+    p_rate.set_title('rate against force level')
+    p_rate.set_xlabel('force')
+    p_rate.set_ylabel('rate')
+    p_temp = fig.add_subplot(gs[1, 0])
+    p_temp.set_title('relative time vs. ISI')
+    p_temp.set_xlabel('relative time')
+    p_temp.set_ylabel('ISI')
+    p_legend = plt.subplot(gs[1, 1])
+    p_legend.get_xaxis().set_visible(False)
+    p_legend.get_yaxis().set_visible(False)
+
+    min_temp = np.min([res[unit]['temp_range'] for unit in units])
+    max_temp = np.max([res[unit]['temp_range'] for unit in units])
+    norm = mpl.colors.Normalize(vmin=min_temp, vmax=max_temp)
 
     for unit in units:
 
         flevels = res[unit]['flevels']
-        p1.plot(flevels, res[unit]['cvs'], '*-')
-        p2.plot(flevels, res[unit]['rates'], '*-')
-        p3.plot(0, 0, '.-', label=path.basename(unit))
+        p_cv.plot(flevels, res[unit]['cvs'], '*-')
+        p_rate.plot(flevels, res[unit]['rates'], '*-')
+        p_legend.plot(0, 0, '.-', label=path.basename(unit))
 
-        p3.legend()
-        plt.savefig(path.join(out_folder, 'rates_vs_force_%s.png' % subsample))
+        isi_len = len(res[unit]['temp_t'])
+        x_range = np.array(range(isi_len)) / float(isi_len-1)
+        for i, temp_t in enumerate(res[unit]['temp_t']):
+            c = cm.jet((temp_t - min_temp) / (max_temp - min_temp), 1)
+            pp = p_temp.plot(x_range[i], res[unit]['temp_isis'][i], '.-', color=c)
+
+    axins1 = inset_axes(p_temp, width="50%", height="5%", loc=1)
+    mpl.colorbar.ColorbarBase(axins1, norm=norm, cmap=cm.jet,
+                              orientation="horizontal",
+                              ticks=[round(min_temp, 2)+0.01, round(max_temp, 2)])
+
+    p_legend.legend()
+    plt.savefig(path.join(out_folder, 'rates_vs_force_%s.png' % subsample))
 plt.show()
