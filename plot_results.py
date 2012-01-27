@@ -14,14 +14,12 @@ data_folder = '/Users/dedan/projects/fu/data/unmixpain/'
 out_folder = path.join(data_folder, 'out')
 res = pickle.load(open(path.join(out_folder, 'results.pickle')))
 
-subsamples = {}
-# TODO: '2010-09-10-u3' falls Du es einfach auf die gleiche Base-line setzen kannst, wie die anderen drei,
-# dann sieht es so aus, als ob die Amplitude(n) den anderen entsprechen müsste(n).
-# Falls aber nicht einfach, dann eben nicht machen..)
-subsamples['sub1'] = ['2010-03-19-u1', '2010-03-19-u2', '2010-03-19-u4', '2010-09-10-u3']
-subsamples['sub2'] = ['2010-12-02-u1', '2010-12-02-u2']
-subsamples['sub3'] = ['2010-12-13-u3', '2010-12-13-u4', '2010-12-14-u4', '2010-12-14-u5']
-
+subsamples = {'sub1':
+              ['2010-03-19-u1', '2010-03-19-u2', '2010-03-19-u4', '2010-09-10-u3'],
+              'sub2':
+              ['2010-12-02-u1', '2010-12-02-u2'],
+              'sub3':
+              ['2010-12-13-u3', '2010-12-13-u4', '2010-12-14-u4', '2010-12-14-u5']}
 
 # first plot the results for each unit seperate
 for key, result in res.items():
@@ -51,9 +49,10 @@ for key, result in res.items():
         pp = p_res_temp.plot(i, result['temp_isis'][i], '.-', color=c)
     axins1 = inset_axes(p_res_temp, width="50%", height="5%", loc=1)
     norm = mpl.colors.Normalize(vmin=min_temp, vmax=max_temp)
+    ticks = [round(min_temp, 2)+0.01, round(max_temp, 2)-0.01]
     mpl.colorbar.ColorbarBase(axins1, norm=norm, cmap=cm.jet,
                               orientation="horizontal",
-                              ticks=[round(min_temp, 2)+0.01, round(max_temp, 2)])
+                              ticks=ticks)
     p_res_temp.set_title('ISI over time \n (temperature coded by color)')
     p_res_temp.set_xlabel('time')
     p_res_temp.set_ylabel('ISI')

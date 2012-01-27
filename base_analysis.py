@@ -45,8 +45,7 @@ nexlist = glob.glob(data_folder + '*.nex')
 res = {}
 wins = []
 
-for nexname in [nexlist[0]]:
-# for i, nexname in enumerate(nexlist):
+for i, nexname in enumerate(nexlist):
 
     print ' '
     logger.info('read in: %s' % nexname)
@@ -109,7 +108,6 @@ for nexname in [nexlist[0]]:
             p_esti.plot(x_range, np.convolve(tmp, kernel, mode='same'), 'b')
 
 
-
         # compute features in stimulation windows
         for epoch in segment.epochs:
             x1, x2 = epoch.time, epoch.time + epoch.duration
@@ -136,5 +134,6 @@ for nexname in [nexlist[0]]:
     p_spik.set_xlim(p_mech.get_xlim())
     p_esti.set_xlim(p_mech.get_xlim())
     fig_signal.savefig(path.join(out_folder, 'fig_signal_%s.png') % path.basename(nexname))
+    plt.show()
 
 pickle.dump(res, open(path.join(out_folder, 'results.pickle'), 'w'))
