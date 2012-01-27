@@ -22,9 +22,6 @@ logger = logging.getLogger()
 data_folder = '/Users/dedan/projects/fu/data/unmixpain/'
 out_folder = path.join(data_folder, 'out')
 
-# flags for what to plot
-plot_section_markers = False
-
 # downsample to save working memory, but !!! if the factor is two high
 # the stepper activity detection fails for small force levels.
 downsample_factor = 10
@@ -115,10 +112,6 @@ for nexname in [nexlist[0]]:
             x1_t, x2_t = (x1 / rate) + start, (x2 / rate) + start
             flevel = np.max(force[x1:x2]) - np.min(force)
             res[nexname]['flevels'].append(flevel.magnitude)
-            if plot_section_markers:
-                start_r = start * rate
-                l = p_all.plot([x1 + start_r, x2 + start_r], [0, 0], 'v')
-                l[0].set_markersize(10)
             # extract spiketrain during stimulation
             win = train[(train > x1_t) & (train < x2_t)]
 
