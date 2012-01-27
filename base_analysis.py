@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# encoding: utf-8
 
 import pickle
 import glob
@@ -9,9 +11,6 @@ import quantities as pq
 from math import floor
 from os import path
 import matplotlib.gridspec as gridspec
-import matplotlib.cm as cm
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from matplotlib import mpl
 
 # logger setup
 logging.basicConfig(level=logging.DEBUG,
@@ -52,8 +51,9 @@ for nexname in [nexlist[0]]:
     print ' '
     logger.info('read in: %s' % nexname)
     block = NexIOplus(filename=nexname, downsample=downsample_factor).read()
+    nex_base = path.basename(nexname)[:-4]
 
-    res[nexname] = {'flevels': [], 'cvs': [], 'rates': [], 'isis': []}
+    res[nex_base] = {'flevels': [], 'cvs': [], 'rates': [], 'isis': []}
 
     # prepare all the figures
     fig_signal = plt.figure()
@@ -64,12 +64,6 @@ for nexname in [nexlist[0]]:
     p_mech = fig_signal.add_subplot(gs[1, 0])
     p_spik = fig_signal.add_subplot(gs[2, 0])
     p_esti = fig_signal.add_subplot(gs[3, 0])
-
-    fig_res = plt.figure()
-    gs = gridspec.GridSpec(2, 2)
-    gs.update(hspace=0.5)
-    p_res_mech = fig_res.add_subplot(gs[0, 0])
-    p_res_temp = fig_res.add_subplot(gs[0, 1])
 
     for segment in block.segments:
 
@@ -88,6 +82,16 @@ for nexname in [nexlist[0]]:
         rate = stepper.sampling_rate
         length = len(stepper)
         start = stepper.t_start
+
+        res[nex_base]['train'] = train.magnitude
+        if 'temp' in segment.annotations:
+            # find the spikes that occured during temp stimulation
+            temp_spikes = train[train > temp.t_start]
+            # extract the temperature for each of the spikes
+            idx = [int(floor((spike - start) * rate)) for spike in temp_spikes]
+            res[nex_base]['temp_t'] = temp[idx[1:]].magnitude
+            res[nex_base]['temp_range'] = [np.min(temp).magnitude, np.max(temp).magnitude]
+            res[nex_base]['temp_isis'] = np.diff(temp_spikes).magnitude
 
         # plot the analog signals
         x_range = range(int(floor(start*rate)), int(floor(start*rate))+length)
@@ -111,14 +115,14 @@ for nexname in [nexlist[0]]:
             x1, x2 = epoch.time, epoch.time + epoch.duration
             x1_t, x2_t = (x1 / rate) + start, (x2 / rate) + start
             flevel = np.max(force[x1:x2]) - np.min(force)
-            res[nexname]['flevels'].append(flevel.magnitude)
+            res[nex_base]['flevels'].append(flevel.magnitude)
             # extract spiketrain during stimulation
             win = train[(train > x1_t) & (train < x2_t)]
 
             wins.append(win)
-            res[nexname]['isis'].append(np.diff(win).magnitude)
-            res[nexname]['cvs'].append(cv(win).magnitude)
-            res[nexname]['rates'].append(float(len(win)) / (x2 - x1))
+            res[nex_base]['isis'].append(np.diff(win).magnitude)
+            res[nex_base]['cvs'].append(cv(win).magnitude)
+            res[nex_base]['rates'].append(float(len(win)) / (x2 - x1))
 
     # annotate axis
     ticks = p_esti.get_xticks()
@@ -133,56 +137,4 @@ for nexname in [nexlist[0]]:
     p_esti.set_xlim(p_mech.get_xlim())
     fig_signal.savefig(path.join(out_folder, 'fig_signal_%s.png') % path.basename(nexname))
 
-    # plot the ISIs over time (x-axis normalized!)
-    for i, isi in enumerate(res[nexname]['isis']):
-        if len(isi) > 3:
-            bla = res[nexname]['flevels'][i] / np.max(res[nexname]['flevels'])
-            c = cm.jet(bla, 1)
-            p_res_mech.plot(np.array(range(len(isi))) / float(len(isi)-1), isi, '.-', color=c)
-    p_res_mech.set_title('relative time vs. ISI')
-    p_res_mech.set_xlabel('normalized time')
-    p_res_mech.set_ylabel('ISI')
-
-    # plot ISIs over temperature
-    # find the spikes that occured during temp stimulation
-    temp_spikes = train[train > temp.t_start]
-    # extract the temperature for each of the spikes
-    idx = [int(floor((spike - start) * rate)) for spike in temp_spikes]
-    temp_t = temp[idx[1:]]
-    min_temp = np.min(temp)
-    isis = np.diff(temp_spikes)
-    for i in range(len(temp_t)):
-        c = cm.jet((temp_t[i] - min_temp) / np.max(temp - min_temp), 1)
-        pp = p_res_temp.plot(i, isis[i], '.-', color=c)
-    axins1 = inset_axes(p_res_temp, width="50%", height="5%", loc=1)
-    norm = mpl.colors.Normalize(vmin=np.min(temp), vmax=np.max(temp))
-    mpl.colorbar.ColorbarBase(axins1, norm=norm, cmap=cm.jet,
-                              orientation="horizontal",
-                              ticks=[round(min_temp, 2)+0.01, round(np.max(temp), 2)])
-    p_res_temp.set_title('ISI over time \n (temperature coded by color)')
-    p_res_temp.set_xlabel('time')
-    p_res_temp.set_ylabel('ISI')
-    fig_res.savefig(path.join(out_folder, 'fig_res_%s.png') % path.basename(nexname))
-
-    plt.show()
-
-
-# plot CV and firing rate in relation to stimulation force level
-fig = plt.figure()
-gs = gridspec.GridSpec(2, 2)
-p1 = fig.add_subplot(gs[0, 0])
-p1.set_title('CV against force level')
-p2 = plt.subplot(gs[0, 1])
-p2.set_title('rate against force level')
-p3 = plt.subplot(gs[1, :])
-
-for key, result in res.items():
-    flevels = result['flevels'] / np.max(result['flevels'])
-    p1.plot(flevels, result['cvs'], '*-')
-    p2.plot(flevels, result['rates'], '*-')
-    p3.plot(0, 0, '.-', label=path.basename(key))
-
-p3.legend()
-plt.savefig(path.join(out_folder, 'rates_vs_force_new.png'))
-plt.show()
 pickle.dump(res, open(path.join(out_folder, 'results.pickle'), 'w'))
