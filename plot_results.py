@@ -62,21 +62,24 @@ for key, result in res.items():
 plt.show()
 
 
-# plot CV and firing rate in relation to stimulation force level
-fig = plt.figure()
-gs = gridspec.GridSpec(2, 2)
-p1 = fig.add_subplot(gs[0, 0])
-p1.set_title('CV against force level')
-p2 = plt.subplot(gs[0, 1])
-p2.set_title('rate against force level')
-p3 = plt.subplot(gs[1, :])
+for subsample, units in subsamples.items():
 
-for key, result in res.items():
-    flevels = result['flevels'] # / np.max(result['flevels'])
-    p1.plot(flevels, result['cvs'], '*-')
-    p2.plot(flevels, result['rates'], '*-')
-    p3.plot(0, 0, '.-', label=path.basename(key))
+    # plot CV and firing rate in relation to stimulation force level
+    fig = plt.figure()
+    gs = gridspec.GridSpec(2, 2)
+    p1 = fig.add_subplot(gs[0, 0])
+    p1.set_title('CV against force level')
+    p2 = plt.subplot(gs[0, 1])
+    p2.set_title('rate against force level')
+    p3 = plt.subplot(gs[1, :])
 
-    p3.legend()
-    plt.savefig(path.join(out_folder, 'rates_vs_force_new.png'))
+    for unit in units:
+
+        flevels = res[unit]['flevels']
+        p1.plot(flevels, res[unit]['cvs'], '*-')
+        p2.plot(flevels, res[unit]['rates'], '*-')
+        p3.plot(0, 0, '.-', label=path.basename(unit))
+
+        p3.legend()
+        plt.savefig(path.join(out_folder, 'rates_vs_force_%s.png' % subsample))
 plt.show()
