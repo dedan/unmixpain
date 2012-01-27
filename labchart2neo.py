@@ -10,6 +10,8 @@ from math import floor
 from os import path
 import matplotlib.gridspec as gridspec
 import matplotlib.cm as cm
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from matplotlib import mpl
 
 # logger setup
 logging.basicConfig(level=logging.DEBUG,
@@ -154,12 +156,19 @@ for nexname in [nexlist[0]]:
     # extract the temperature for each of the spikes
     idx = [int(floor((spike - start) * rate)) for spike in temp_spikes]
     temp_t = temp[idx[1:]]
+    min_temp = np.min(temp)
     isis = np.diff(temp_spikes)
     for i in range(len(temp_t)):
-        c = cm.jet(i / float(len(temp_t) - 1), 1)
-        p_res_temp.plot(temp_t[i], isis[i], '.', color=c)
-    p_res_temp.set_title('temperature vs. ISI')
-    p_res_temp.set_xlabel('temperature')
+        c = cm.jet((temp_t[i] - min_temp) / np.max(temp - min_temp), 1)
+        pp = p_res_temp.plot(i, isis[i], '.-', color=c)
+    axins1 = inset_axes(p_res_temp, width="50%", height="5%", loc=1)
+    norm = mpl.colors.Normalize(vmin=np.min(temp), vmax=np.max(temp))
+    mpl.colorbar.ColorbarBase(axins1, norm=norm, cmap=cm.jet,
+                              orientation="horizontal",
+                              ticks=[round(min_temp, 2)+0.01, round(np.max(temp), 2)])
+    p_res_temp.set_title('ISI over time \n (temperature coded by color)')
+    p_res_temp.set_xlabel('time')
+    p_res_temp.set_ylabel('ISI')
     fig_res.savefig(path.join(out_folder, 'fig_res_%s.png') % path.basename(nexname))
 
     plt.show()
