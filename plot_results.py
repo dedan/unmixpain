@@ -11,6 +11,7 @@ from matplotlib import mpl
 import matplotlib.gridspec as gridspec
 
 data_folder = '/Users/dedan/projects/fu/data/unmixpain/'
+plot_format = 'pdf'
 out_folder = path.join(data_folder, 'out')
 res = pickle.load(open(path.join(out_folder, 'results.pickle')))
 
@@ -56,7 +57,7 @@ for key, result in res.items():
     p_res_temp.set_title('ISI over time \n (temperature coded by color)')
     p_res_temp.set_xlabel('time')
     p_res_temp.set_ylabel('ISI')
-    fig_res.savefig(path.join(out_folder, 'fig_res_%s.png') % key)
+    fig_res.savefig(path.join(out_folder, 'fig_res_%s.%s') % (key, plot_format))
 
 plt.show()
 
@@ -106,5 +107,5 @@ for subsample, units in subsamples.items():
                               ticks=[round(min_temp, 2)+0.01, round(max_temp, 2)])
 
     p_legend.legend()
-    plt.savefig(path.join(out_folder, 'rates_vs_force_%s.png' % subsample))
+    plt.savefig(path.join(out_folder, 'rates_vs_force_%s.%s' % (subsample, plot_format)))
 plt.show()

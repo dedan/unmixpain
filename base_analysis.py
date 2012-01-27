@@ -19,6 +19,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 data_folder = '/Users/dedan/projects/fu/data/unmixpain/'
+plot_format = 'pdf'
 out_folder = path.join(data_folder, 'out')
 
 # downsample to save working memory, but !!! if the factor is two high
