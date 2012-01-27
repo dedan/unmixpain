@@ -114,13 +114,13 @@ for i, nexname in enumerate(nexlist):
             x1, x2 = epoch.time, epoch.time + epoch.duration
             x1_t, x2_t = (x1 / rate) + start, (x2 / rate) + start
             flevel = np.max(force[x1:x2]) - np.min(force)
-            res[nex_base]['flevels'].append(flevel.magnitude)
+            res[nex_base]['flevels'].append(flevel.magnitude.item())
             # extract spiketrain during stimulation
             win = train[(train > x1_t) & (train < x2_t)]
 
             wins.append(win)
             res[nex_base]['isis'].append(np.diff(win).magnitude)
-            res[nex_base]['cvs'].append(cv(win).magnitude)
+            res[nex_base]['cvs'].append(cv(win).magnitude.item())
             res[nex_base]['rates'].append(float(len(win)) / (x2 - x1))
 
     # annotate axis

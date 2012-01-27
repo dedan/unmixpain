@@ -16,7 +16,7 @@ out_folder = path.join(data_folder, 'out')
 res = pickle.load(open(path.join(out_folder, 'results.pickle')))
 
 subsamples = {'sub1':
-              ['2010-03-19-u1', '2010-03-19-u2', '2010-03-19-u4', '2010-09-10-u3'],
+              ['2010-03-19-u1', '2010-03-19-u2', '2010-03-19-u4'],
               'sub2':
               ['2010-12-02-u1', '2010-12-02-u2'],
               'sub3':
@@ -100,12 +100,22 @@ for subsample, units in subsamples.items():
         for i, temp_t in enumerate(res[unit]['temp_t']):
             c = cm.jet((temp_t - min_temp) / (max_temp - min_temp), 1)
             pp = p_temp.plot(x_range[i], res[unit]['temp_isis'][i], '.-', color=c)
-
     axins1 = inset_axes(p_temp, width="50%", height="5%", loc=1)
     mpl.colorbar.ColorbarBase(axins1, norm=norm, cmap=cm.jet,
                               orientation="horizontal",
                               ticks=[round(min_temp, 2)+0.01, round(max_temp, 2)])
-
     p_legend.legend()
     plt.savefig(path.join(out_folder, 'rates_vs_force_%s.%s' % (subsample, plot_format)))
+
+    plt.figure()
+    # take only the last 6 mechanical stimulations because this is what we 
+    # have for all units in common. some also have 7 or 8 force levels
+    rates = np.array([res[unit]['rates'][-6:] for unit in units])
+    flevels = np.array([res[unit]['flevels'][-6:] for unit in units])
+    plt.plot(np.mean(flevels, axis=0), np.mean(rates, axis=0))
+    plt.title('mean force level vs. mean rate')
+    plt.xlabel('mean force')
+    plt.ylabel('mean rate')
+    plt.savefig(path.join(out_folder, 'rates_vs_force_mean_%s.%s' % (subsample, plot_format)))
+
 plt.show()
