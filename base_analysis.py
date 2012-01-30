@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import pickle
+import pickle, json
 import glob
 import logging
 from nexioplus import NexIOplus

@@ -4,7 +4,7 @@
 from os import path
 import pylab as plt
 import numpy as np
-import pickle
+import pickle, json
 import matplotlib.cm as cm
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib import mpl
@@ -15,12 +15,7 @@ plot_format = 'pdf'
 out_folder = path.join(data_folder, 'out')
 res = pickle.load(open(path.join(out_folder, 'results.pickle')))
 
-subsamples = {'sub1':
-              ['2010-03-19-u1', '2010-03-19-u2', '2010-03-19-u4'],
-              'sub2':
-              ['2010-12-02-u1', '2010-12-02-u2'],
-              'sub3':
-              ['2010-12-13-u3', '2010-12-13-u4', '2010-12-14-u4', '2010-12-14-u5']}
+subsamples = json.load(open(path.join(data_folder, 'subsamples.json')))
 
 # first plot the results for each unit seperate
 for key, result in res.items():

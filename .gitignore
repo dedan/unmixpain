@@ -3,3 +3,5 @@ out
 .DS_Store
 *.png
 scratch.py
+unmixpain.sublime-project
+unmixpain.sublime-workspace
