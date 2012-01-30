@@ -44,9 +44,11 @@ def cv(train):
 nexlist = glob.glob(data_folder + '*.nex')
 
 res = {}
+rate_estimates = {}
 wins = []
 
 for i, nexname in enumerate(nexlist):
+# for i, nexname in enumerate([nexlist[1]]):
 
     print ' '
     logger.info('read in: %s' % nexname)
@@ -65,6 +67,7 @@ for i, nexname in enumerate(nexlist):
     p_spik = fig_signal.add_subplot(gs[2, 0])
     p_esti = fig_signal.add_subplot(gs[3, 0])
 
+    rate_estimates[nex_base] = {'data': []}
     for segment in block.segments:
 
         train = segment.spiketrains[0]
@@ -106,8 +109,8 @@ for i, nexname in enumerate(nexlist):
             p_spik.plot(x_range, tmp, 'k', linewidth=0.3)
 
             kernel = np.ones(rate * kernel_delta_t) / kernel_delta_t
-            p_esti.plot(x_range, np.convolve(tmp, kernel, mode='same'), 'b')
-
+            rate_estimate = np.convolve(tmp, kernel, mode='same')
+            p_esti.plot(x_range, rate_estimate, 'b')
 
         # compute features in stimulation windows
         for epoch in segment.epochs:
@@ -122,19 +125,62 @@ for i, nexname in enumerate(nexlist):
             res[nex_base]['isis'].append(np.diff(win).magnitude)
             res[nex_base]['cvs'].append(cv(win).magnitude.item())
             res[nex_base]['rates'].append(float(len(win)) / (x2 - x1))
+            rate_estimates[nex_base]['data'].append(rate_estimate[x1:x2])
+            rate_estimates[nex_base]['start'] = x1
+            rate_estimates[nex_base]['end'] = x2
 
     # annotate axis
-    ticks = p_esti.get_xticks()
-    p_esti.set_xticks(ticks)
-    p_esti.set_xticklabels(ticks/rate, rotation=10)
+    ticks = p_temp.get_xticks()
+    p_temp.set_xticks(ticks)
+    p_temp.set_xticklabels(ticks/rate, rotation=10)
     p_esti.set_xlabel('time')
     p_esti.set_ylabel('firing rate')
-    p_temp.set_xticklabels([])
+    p_esti.set_xticklabels([])
     p_mech.set_xticklabels([])
     p_spik.set_xticklabels([])
     p_spik.set_xlim(p_mech.get_xlim())
     p_esti.set_xlim(p_mech.get_xlim())
-    fig_signal.savefig(path.join(out_folder, 'fig_signal_%s.png') % path.basename(nexname))
+    fig_signal.savefig(path.join(out_folder, 'fig_signal_%s.%s') % 
+                       (path.basename(nexname), plot_format))
     plt.show()
 
+subsamples = json.load(open(path.join(data_folder, 'subsamples.json')))
+for subsample, units in subsamples.items():
+    p_mean_est = plt.figure()
+    subs = []
+    print subsample
+    epoch_lengths = np.array([[len(epo) for epo in rate_estimates[unit]['data']][-6:]
+                                for unit in units])
+    min_epoch_lengths = np.min(epoch_lengths, axis=0)
+    epochs = []
+    for unit in units:
+        tmp = []
+        for i, epo in enumerate(rate_estimates[unit]['data'][-6:]):
+            tmp.append(np.array(epo[-min_epoch_lengths[i]:]))
+        epochs.append(tmp)
+    blam = np.mean(epochs, axis=0)
+    for i, mepo in enumerate(blam):
+        sub = p_mean_est.add_subplot(1, 6, i+1)
+        subs.append(sub)
+        sub.plot(mepo)
+    for i, sub in enumerate(subs):
+        sub.set_ylim(subs[-1].get_ylim())
+        sub.set_xticklabels([])
+        if not i == 0:
+            sub.set_yticklabels([])
+    p_mean_est.suptitle('%s:  %s' % (subsample, ', '.join(units)))
+    p_mean_est.savefig(path.join(out_folder, 'fig_meanest_%s.%s') 
+                       % (subsample, plot_format))
+    plt.show()
 pickle.dump(res, open(path.join(out_folder, 'results.pickle'), 'w'))
+
+
+
+
+
+
+
+
+
+
+
