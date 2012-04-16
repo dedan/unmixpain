@@ -164,7 +164,9 @@ class NexIOplus(NeuroExplorerIO):
             elif not x == 0:
                 onoffs.append((x, i))
                 x = 0
+        # remove half the kernel width because a shift is introduced by the convolution
+        onoffs = [(o[0]+self.win_width/2, o[1]-self.win_width/2) for o in onoffs]
         # sort them differently because my algo is so stupid
-        onoffs = [(onoffs[i][1], onoffs[i+1][0]) for i in range(len(onoffs)-1)]
+        onoffs = [(onoffs[i][0], onoffs[i+1][1]) for i in range(len(onoffs)-1)]
         # don't use the times in between
         return onoffs[::2]
