@@ -55,8 +55,8 @@ class test_nexioplus(unittest.TestCase):
         correct values from visual inspection
         """
         epoch = self.block.segments[0].epochs[0]
-        self.assert_(39980 < epoch.time < 40000)
-        self.assert_(240120 < epoch.time + epoch.duration < 240140)
+        self.assert_(39270 < epoch.time < 39280)
+        self.assert_(240840 < epoch.time + epoch.duration < 240850)
 
     def test_spike_alignment(self):
         """test the spike alignment
