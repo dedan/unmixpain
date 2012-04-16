@@ -4,13 +4,14 @@
 import pickle, json
 import glob
 import logging
-from nexioplus import NexIOplus
+import nexioplus
 import pylab as plt
 import numpy as np
 import quantities as pq
 from math import floor
 from os import path
 import matplotlib.gridspec as gridspec
+reload(nexioplus)
 
 # logger setup
 logging.basicConfig(level=logging.DEBUG,
@@ -19,6 +20,7 @@ logging.basicConfig(level=logging.DEBUG,
 logger = logging.getLogger()
 
 data_folder = '/Users/dedan/projects/fu/data/unmixpain/'
+data_folder = '/Users/dedan/projects/fu/unmixpain/tests/test_data/'
 plot_format = 'pdf'
 out_folder = path.join(data_folder, 'out')
 
@@ -44,7 +46,7 @@ for i, nexname in enumerate([nexlist[0]]):
 
     print ' '
     logger.info('read in: %s' % nexname)
-    block = NexIOplus(filename=nexname, downsample=downsample_factor).read()
+    block = nexioplus.NexIOplus(filename=nexname, downsample=downsample_factor).read()
     nex_base = path.basename(nexname)[:-4]
 
     fig = plt.figure()
@@ -68,14 +70,15 @@ for i, nexname in enumerate([nexlist[0]]):
         start = stepper.t_start
 
         # plot the analog signals
-        x_range = range(int(floor(start*rate)), int(floor(start*rate))+length)
+        x_range = np.arange(start*rate, start*rate+length)
+
         plt.plot(x_range, force, 'g')
         plt.plot(x_range, stepper, 'b')
 
         # compute features in stimulation windows
         for epoch in segment.epochs:
             x1, x2 = epoch.time, epoch.time + epoch.duration
-            x1_t, x2_t = (x1 / rate) + start, (x2 / rate) + start
+            print 'times: ', x1, x2
 
             plt.plot([x1+start*rate, x2+start*rate], [0, 0], '*r')
 plt.show()
